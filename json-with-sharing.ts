@@ -1,5 +1,44 @@
 type Json = any
 
+export function expandCse(json: Json, valueField = '_value', cseField = '_cse', refField = '_r'): Json {
+    if(typeof json !== 'object') return json;
+    if(json === null || json[cseField] === void(0)) return json;
+    const cse = json[cseField];
+    return expandRec(json[valueField], cse, new Array(cse.length), refField);
+}
+
+function expandRec(json: Json, cse: Array<object>, reformed: Array<Json>, refField: string): Json {
+    const type = typeof json;
+    if(type === 'object') {
+        if(json === null) return null;
+        const ix: number | undefined = json[refField];
+        if(ix !== void(0)) {
+            const t = reformed[ix];
+            if(t !== void(0)) return t;
+            return reformed[ix] = expandRec(cse[ix], cse, reformed, refField);
+        }
+        if(json instanceof Array) {
+            const len = json.length;
+            const t = new Array(json.length);
+            for(let i = 0; i < len; ++i) {
+                t[i] = expandRec(json[i], cse, reformed, refField);
+            }
+            return t;
+        } else {
+            const keys = Object.keys(json);
+            const len = keys.length;
+            const t: any = {};
+            for(let i = 0; i < len; ++i) {
+                const k = keys[i];
+                t[k] = expandRec(json[k], cse, reformed, refField);
+            }
+            return t;
+        }
+    } else {
+        return json;
+    }
+}
+
 export function cse(json: Json, valueField = '_value', cseField = '_cse', refField = '_r'): Json {
     const cseTemp: Array<Json> = [];
     const reused: Array<boolean> = [];
@@ -7,6 +46,7 @@ export function cse(json: Json, valueField = '_value', cseField = '_cse', refFie
         if(json === null) return null;
         const intermediate =  cseRec(json, JsonTrie.create(), cseTemp, reused, refField);
         const cse: Array<Json> = [];
+        console.log(JSON.stringify({intermediate: intermediate, cseTemp: cseTemp, reused: reused}));
         const result = reconstitute(intermediate, cseTemp, cse, reused, refField);
         return cse.length === 0 ? json : {[valueField]: result, [cseField]: cse};
     } else {
@@ -34,7 +74,6 @@ function reconstitute(intermediate: Json, cseTemp: Array<Json | number>, cse: Ar
                         t[i] = reconstitute(t[i], cseTemp, cse, reused, refField);
                     }
                 } else {
-                    const t: Json = cseTemp[ix];
                     const keys = Object.keys(t);
                     const len = keys.length;
                     for(let i = 0; i < len; ++i) {
@@ -98,7 +137,7 @@ function cseRec(key: Json, trie: JsonTrie, cse: Array<Json>, reused: Array<boole
             }
             const ix = trie.insert(result);
             if(ix < 0) {
-                reused[ix-1] = true;
+                reused[-ix-1] = true;
                 return {[refField]: -ix-1};
             } else {
                 cse[ix-1] = result;
@@ -109,32 +148,6 @@ function cseRec(key: Json, trie: JsonTrie, cse: Array<Json>, reused: Array<boole
         return key;
     }
 }
-
-/*
-function expandCse(json: Json, valueField = '_value', cseField = '_cse', refField = '_r'): Json {
-    if(typeof json === 'object' && json !== null && json[cseField] === void(0)) return json;
-
-
-}
-
-function expandRec(json: Json): Json {
-    const type = typeof key;
-    if(type === 'object') {
-        if(key === null) {
-        } else if(key instanceof Array) {
-        } else { // it's an object
-        }
-    } else if(type === 'undefined') {
-    } else { // it's atomic
-        let node = curr[type];
-        if(node === void(0)) curr[type] = node = {};
-        if(root) return node[key] = val;
-        let node2 = node[key];
-        if(node2 === void(0)) node[key] = node2 = val;
-        return node2;
-    }
-}
-*/
 
 class JsonTrie {
     private readonly trie: any = {};
