@@ -1,5 +1,7 @@
 ## JSON with sharing
 
+Documentation: https://derekelkins.github.io/json-with-sharing/doc/index.html
+
 `cse(someJson)` performs common subexpression elimination producing a new JSON object with a `_cse` field
 holding an array of JSON objects or arrays. Non-atomic subexpressions that are used multiple times are replaced
 with a `{"_r": n}` object where `n` is an index into the `_cse` array.
