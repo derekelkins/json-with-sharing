@@ -1,0 +1,6 @@
+title: JSON with Sharing
+show_downloads: false
+google_analytics:
+theme: jekyll-theme-minimal
+include:
+    - "_*_*.html"
