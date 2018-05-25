@@ -39,12 +39,13 @@ function expandRec(json: Json, cse: Array<object>, reformed: Array<Json>, refFie
     }
 }
 
-export function cse(json: Json, valueField = '_value', cseField = '_cse', refField = '_r'): Json {
+export function cse(json: Json, useSharing = true, valueField = '_value', cseField = '_cse', refField = '_r'): Json {
     const cseTemp: Array<Json> = [];
     const reused: Array<boolean> = [];
     if(typeof json === 'object') {
         if(json === null) return null;
-        const intermediate =  cseRec(json, JsonTrie.create(), cseTemp, reused, [], refField);
+        const intermediate = useSharing ? cseRecWithSharing(json, JsonTrie.create(), cseTemp, reused, [], refField)
+                                        : cseRec(json, JsonTrie.create(), cseTemp, reused, refField);
         const cse: Array<Json> = [];
         const result = reconstitute(intermediate, cseTemp, cse, reused, refField);
         return cse.length === 0 ? json : {[valueField]: result, [cseField]: cse};
@@ -107,7 +108,7 @@ function reconstitute(intermediate: Json, cseTemp: Array<Json | number>, cse: Ar
     }
 }
 
-function cseRec(key: Json, trie: JsonTrie, cse: Array<Json>, reused: Array<boolean>, seen: Array<[Json, object]>, refField: string): Json {
+function cseRecWithSharing(key: Json, trie: JsonTrie, cse: Array<Json>, reused: Array<boolean>, seen: Array<[Json, object]>, refField: string): Json {
     const type = typeof key;
     if(type === 'object') {
         if(key === null) return null;
@@ -124,7 +125,7 @@ function cseRec(key: Json, trie: JsonTrie, cse: Array<Json>, reused: Array<boole
             const len = key.length;
             const result = new Array(len);
             for(let i = 0; i < len; ++i) {
-                result[i] = cseRec(key[i], trie, cse, reused, seen, refField);
+                result[i] = cseRecWithSharing(key[i], trie, cse, reused, seen, refField);
             }
             const ix = trie.insert(result);
             if(ix < 0) {
@@ -142,7 +143,7 @@ function cseRec(key: Json, trie: JsonTrie, cse: Array<Json>, reused: Array<boole
             const result: Json = {};
             for(let i = 0; i < len; ++i) {
                 const k = keys[i];
-                result[k] = cseRec(key[k], trie, cse, reused, seen, refField);
+                result[k] = cseRecWithSharing(key[k], trie, cse, reused, seen, refField);
             }
             const ix = trie.insert(result);
             if(ix < 0) {
@@ -152,6 +153,48 @@ function cseRec(key: Json, trie: JsonTrie, cse: Array<Json>, reused: Array<boole
                 cse[ix-1] = result;
                 const r = {[refField]: ix-1};
                 seen.push([key, r]);
+                return r;
+            }
+        }
+    } else { // it's atomic
+        return key;
+    }
+}
+
+function cseRec(key: Json, trie: JsonTrie, cse: Array<Json>, reused: Array<boolean>, refField: string): Json {
+    const type = typeof key;
+    if(type === 'object') {
+        if(key === null) return null;
+        if(key instanceof Array) {
+            const len = key.length;
+            const result = new Array(len);
+            for(let i = 0; i < len; ++i) {
+                result[i] = cseRec(key[i], trie, cse, reused, refField);
+            }
+            const ix = trie.insert(result);
+            if(ix < 0) {
+                reused[-ix-1] = true;
+                return {[refField]: -ix-1};
+            } else {
+                cse[ix-1] = result;
+                const r = {[refField]: ix-1};
+                return r;
+            }
+        } else { // it's an object
+            const keys = Object.keys(key);
+            const len = keys.length;
+            const result: Json = {};
+            for(let i = 0; i < len; ++i) {
+                const k = keys[i];
+                result[k] = cseRec(key[k], trie, cse, reused, refField);
+            }
+            const ix = trie.insert(result);
+            if(ix < 0) {
+                reused[-ix-1] = true;
+                return {[refField]: -ix-1};
+            } else {
+                cse[ix-1] = result;
+                const r = {[refField]: ix-1};
                 return r;
             }
         }

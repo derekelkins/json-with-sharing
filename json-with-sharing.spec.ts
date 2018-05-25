@@ -4,38 +4,48 @@ import "jest"
 describe('cse tests', () => {
     test('trivial number', () => {
         expect(cse(3)).toEqual(3);
+        expect(cse(3, false)).toEqual(3);
     });
 
     test('trivial null', () => {
         expect(cse(null)).toEqual(null);
+        expect(cse(null, false)).toEqual(null);
     });
 
     test('trivial undefined', () => {
         expect(cse(void(0))).toEqual(void(0));
+        expect(cse(void(0), false)).toEqual(void(0));
     });
 
     test('no sharing object', () => {
         expect(cse({foo: 1, bar: 2})).toEqual({foo: 1, bar: 2});
+        expect(cse({foo: 1, bar: 2}, false)).toEqual({foo: 1, bar: 2});
     });
 
     test('no sharing array', () => {
         expect(cse([1, 2])).toEqual([1, 2]);
+        expect(cse([1, 2], false)).toEqual([1, 2]);
     });
 
     test('simple sharing object', () => {
         expect(cse({foo: [1], bar: [1]})).toEqual({_cse: [[1]], _value: {foo: {_r: 0}, bar: {_r: 0}}});
+        expect(cse({foo: [1], bar: [1]}, false)).toEqual({_cse: [[1]], _value: {foo: {_r: 0}, bar: {_r: 0}}});
     });
 
     test('simple sharing array', () => {
         expect(cse([[1], [1]])).toEqual({_cse: [[1]], _value: [{_r: 0}, {_r: 0}]});
+        expect(cse([[1], [1]], false)).toEqual({_cse: [[1]], _value: [{_r: 0}, {_r: 0}]});
     });
 
     test('simple shared object', () => {
         expect(cse([{foo: 1}, {foo: 1}])).toEqual({_cse: [{foo: 1}], _value: [{_r: 0}, {_r: 0}]});
+        expect(cse([{foo: 1}, {foo: 1}], false)).toEqual({_cse: [{foo: 1}], _value: [{_r: 0}, {_r: 0}]});
     });
 
     test('nested sharing object', () => {
         expect(cse([{foo: [1], bar: [1]},{foo: [1], bar: [1]}]))
+            .toEqual({_cse: [{foo: {_r: 1}, bar: {_r: 1}},[1]], _value: [{_r: 0}, {_r: 0}]});
+        expect(cse([{foo: [1], bar: [1]},{foo: [1], bar: [1]}], false))
             .toEqual({_cse: [{foo: {_r: 1}, bar: {_r: 1}},[1]], _value: [{_r: 0}, {_r: 0}]});
     });
 
