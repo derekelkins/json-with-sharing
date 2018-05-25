@@ -46,7 +46,6 @@ export function cse(json: Json, valueField = '_value', cseField = '_cse', refFie
         if(json === null) return null;
         const intermediate =  cseRec(json, JsonTrie.create(), cseTemp, reused, refField);
         const cse: Array<Json> = [];
-        console.log(JSON.stringify({intermediate: intermediate, cseTemp: cseTemp, reused: reused}));
         const result = reconstitute(intermediate, cseTemp, cse, reused, refField);
         return cse.length === 0 ? json : {[valueField]: result, [cseField]: cse};
     } else {
